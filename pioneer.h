@@ -36,10 +36,14 @@ private:
 	double LASER_RIGHT;
 
 	int sonarCount;
-	double SONAR_LEFT;
-	double SONAR_FRONT;
-	double SONAR_RIGHT;
-	double SONAR_BACK;
+	double SONAR_LEFT_FRONT;
+	double SONAR_LEFT_BACK;
+	double SONAR_FRONT_LEFT;
+	double SONAR_FRONT_RIGHT;
+	double SONAR_RIGHT_FRONT;
+	double SONAR_RIGHT_BACK;
+	double SONAR_BACK_LEFT;
+	double SONAR_BACK_RIGHT;
 
 	void printSonar();
 	void printLaser();

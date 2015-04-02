@@ -1,28 +1,36 @@
 #include "pioneer.h"
 
-SonarProxy* g_Sonar;
 LaserProxy* g_Laser;
+SonarProxy* g_Sonar;
 
-void displaySonar() {
-	//Clear information from last draw
+void showLaserAndSonar() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	glMatrixMode(GL_MODELVIEW); //Switch to the drawing perspective
-	glLoadIdentity(); //Reset the drawing perspective
-
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
 	glBegin(GL_LINES);
 
-	if (g_Sonar) {
-		int n = g_Sonar->GetCount();
+	if (g_Laser) {
+		glColor3f(0, 1, 0);
+		int n = g_Laser->GetCount();
 		for (int i = 0; i < n; i++) {
-			glVertex3f(0, 0, -5);
-			glVertex3f(-0.2 * g_Sonar->GetScan(i) * cos(i * 2 * M_PI / n), 0.2 * g_Sonar->GetScan(i) * sin(i * 2 * M_PI / n), -5);
+			glVertex3d(0, 0, -5);
+			glVertex3d(0.2 * g_Laser->GetRange(i) * cos(i * M_PI / n),
+					0.2 * g_Laser->GetRange(i) * sin(i * M_PI / n), -5);
 		}
 	}
 
-	glEnd(); //End triangle coordinates
+	if (g_Sonar) {
+		glColor3f(1, 1, 1);
+		int n = g_Sonar->GetCount();
+		for (int i = 0; i < n; i++) {
+			player_pose3d_t pose = g_Sonar->GetPose(i);
+			glVertex3d(pose.px, pose.py, -5);
+			glVertex3d(pose.px + 0.2 * g_Sonar->GetScan(i) * cos(pose.pyaw), pose.py + 0.2 * g_Sonar->GetScan(i) * sin(pose.pyaw), -5);
+		}
+	}
 
-	glutSwapBuffers(); //Send the 3D scene to the screen
+	glEnd();
+	glutSwapBuffers();
 }
 
 Pioneer::Pioneer(int argc, char **argv) {
@@ -30,28 +38,34 @@ Pioneer::Pioneer(int argc, char **argv) {
 
 	robot = new PlayerClient(gHostname, gPort);
 	position = new Position2dProxy(robot, gIndex);
-	sonar = new SonarProxy(robot, gIndex);
 	laser = new LaserProxy(robot, gIndex);
+	sonar = new SonarProxy(robot, gIndex);
+	//	speech = new SpeechProxy(&robot, gIndex); not available
 
-	g_Sonar = sonar;
+	sonar->RequestGeom();
 	g_Laser = laser;
-
-//	speech = new SpeechProxy(&robot, gIndex); not available
+	g_Sonar = sonar;
 
 	position->SetMotorEnable(true);
 	robot->Read();
 	robot->Read();
 
+	//correct - at least on the virtual pioneer
 	laserCount = laser->GetCount();
 	LASER_LEFT = laserCount - 1;
 	LASER_FRONT = laserCount / 2;
 	LASER_RIGHT = 0;
 
+	//correct - at least on the virtual pioneer
 	sonarCount = sonar->GetCount();
-	SONAR_LEFT = 2 * sonarCount / 3;
-	SONAR_FRONT = sonarCount / 3;
-	SONAR_RIGHT = 0;
-	SONAR_BACK = sonarCount - 1;
+	SONAR_LEFT_FRONT = 0;
+	SONAR_LEFT_BACK = sonarCount - 1;
+	SONAR_FRONT_LEFT = sonarCount / 4 - 1;
+	SONAR_FRONT_RIGHT = sonarCount / 4;
+	SONAR_RIGHT_FRONT = sonarCount / 2 - 1;
+	SONAR_RIGHT_BACK = sonarCount / 2;
+	SONAR_BACK_LEFT = 3 * sonarCount / 4;
+	SONAR_BACK_RIGHT = 3 * sonarCount / 4 - 1;
 }
 
 void Pioneer::printLaser() {
@@ -61,10 +75,14 @@ void Pioneer::printLaser() {
 }
 
 void Pioneer::printSonar() {
-	cout << "Sonar left: " << sonar->GetScan(SONAR_LEFT) << "    front: "
-			<< sonar->GetScan(SONAR_FRONT) << "    right: "
-			<< sonar->GetScan(SONAR_RIGHT) << "    back: "
-			<< sonar->GetScan(SONAR_BACK) << endl << endl;
+	cout << "Sonar left: " << sonar->GetScan(SONAR_LEFT_FRONT) << " "
+			<< sonar->GetScan(SONAR_LEFT_BACK) << "    front: "
+			<< sonar->GetScan(SONAR_FRONT_LEFT) << " "
+			<< sonar->GetScan(SONAR_FRONT_RIGHT) << "    right: "
+			<< sonar->GetScan(SONAR_RIGHT_FRONT) << " "
+			<< sonar->GetScan(SONAR_RIGHT_BACK) << "    back: "
+			<< sonar->GetScan(SONAR_BACK_LEFT) << " "
+			<< sonar->GetScan(SONAR_BACK_RIGHT) << endl << endl;
 }
 
 void Pioneer::run() {
@@ -148,7 +166,7 @@ void showWindow(int argc, char **argv) {
 	glutInit(&argc, argv);
 	glutInitWindowSize(400, 400);
 	glutCreateWindow("Sonar visualisation");
-	glutDisplayFunc(displaySonar);
+	glutDisplayFunc(showLaserAndSonar);
 	glutReshapeFunc(handleResize);
 	glutIdleFunc(glutPostRedisplay);
 	glutMainLoop();
