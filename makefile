@@ -6,9 +6,9 @@ SRC = pioneer.cc
 
 # Pick up the necessary options, directories and options for compiling and linking with player 
 # Add a warning on all errors, and -g3 for debugging information 
-CPPFLAGS = `pkg-config --cflags playerc++` -Wall -g3 
-LDFLAGS = `pkg-config --libs playerc++`
+CPPFLAGS = `pkg-config --cflags playerc++` -Wall -g3
+LDFLAGS = `pkg-config --libs playerc++` -lpthread -lGL -lGLU -lglut
 
 #Target and command below builds the target output executable file
 $(TARGET): $(SRC)
-	g++ $(CPPFLAGS) $(SRC) $(LDFLAGS) -o $(TARGET)
+	g++ $(SRC) -o $(TARGET) $(CPPFLAGS) $(LDFLAGS) -std=c++11
