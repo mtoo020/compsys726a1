@@ -11,4 +11,8 @@ LDFLAGS = `pkg-config --libs playerc++` -lpthread -lGL -lGLU -lglut
 
 #Target and command below builds the target output executable file
 $(TARGET): $(SRC)
+	make clean
 	g++ $(SRC) -o $(TARGET) $(CPPFLAGS) $(LDFLAGS) -std=c++11
+
+clean:
+	rm -f $(TARGET) *.o
