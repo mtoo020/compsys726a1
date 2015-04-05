@@ -3,6 +3,9 @@
 LaserProxy* g_Laser;
 SonarProxy* g_Sonar;
 
+//next steps
+//refer to assignment sheet
+
 void showLaserAndSonar() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glMatrixMode(GL_MODELVIEW);
@@ -35,6 +38,14 @@ void showLaserAndSonar() {
 	glutSwapBuffers();
 }
 
+//Called when the window is resized
+void handleResize(int w, int h) {
+	glViewport(0, 0, w, h);
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	gluPerspective(45.0, (double) w / (double) h, 1.0, 200.0);
+}
+
 Pioneer::Pioneer(int argc, char **argv) {
 	parse_args(argc, argv);
 
@@ -56,7 +67,8 @@ Pioneer::Pioneer(int argc, char **argv) {
 	//correct - at least on the virtual pioneer
 	laserCount = laser->GetCount();
 	LASER_LEFT = laserCount - 1;
-	LASER_FRONT = laserCount / 2;
+	LASER_FRONT_LEFT = laserCount / 2;
+	LASER_FRONT_RIGHT = laserCount / 2 + 1;
 	LASER_RIGHT = 0;
 
 	//correct - at least on the virtual pioneer
@@ -72,8 +84,8 @@ Pioneer::Pioneer(int argc, char **argv) {
 }
 
 void Pioneer::printLaser() {
-	cout << "Laser left: " << laser->GetRange(LASER_LEFT) << "    front: " << laser->GetRange(LASER_FRONT)
-			<< "    right: " << laser->GetRange(LASER_RIGHT) << endl << endl;
+	cout << "Laser left: " << laser->GetRange(LASER_LEFT) << "    front: " << laser->GetRange(LASER_FRONT_LEFT) << " "
+			<< laser->GetRange(LASER_FRONT_RIGHT) << "    right: " << laser->GetRange(LASER_RIGHT) << endl << endl;
 }
 
 void Pioneer::printSonar() {
@@ -84,8 +96,24 @@ void Pioneer::printSonar() {
 			<< endl;
 }
 
-double Pioneer::getTrueSonarAngle(int index) {
-	return M_PI_2 + sonar->GetPose(index).pyaw;
+double Pioneer::absDiff(double a, double b) {
+	return abs(abs(a) - abs(b));
+}
+
+double Pioneer::getFrontLaserRange() {
+	return (laser->GetRange(LASER_FRONT_LEFT) + laser->GetRange(LASER_FRONT_RIGHT)) / 2;
+}
+
+double Pioneer::getLaserAngleError(int threshold) {
+	int closestLaser = 0;
+	double minDistance = 100;
+	for (int i = LASER_FRONT_LEFT - threshold; i <= LASER_FRONT_RIGHT + threshold; i++) {
+		if (laser->GetRange(i) < minDistance) {
+			closestLaser = i;
+			minDistance = laser->GetRange(i);
+		}
+	}
+	return laser->GetBearing(closestLaser);
 }
 
 int Pioneer::getClosestLaser() {
@@ -98,19 +126,6 @@ int Pioneer::getClosestLaser() {
 		}
 	}
 	return closestLaser;
-}
-double Pioneer::getLaserAngleError(int threshold) {
-	int closestLaser = 0;
-	double minDistance = 100;
-	for (int i = LASER_FRONT - threshold; i < LASER_FRONT + threshold; i++) {
-		if (laser->GetRange(i) < minDistance) {
-			closestLaser = i;
-			minDistance = laser->GetRange(i);
-		}
-	}
-	double pn = laser->GetBearing(closestLaser) - laser->GetBearing(LASER_FRONT);
-	cout << pn << endl;
-	return laser->GetBearing(closestLaser) - laser->GetBearing(LASER_FRONT);
 }
 
 int Pioneer::getClosestSonar() {
@@ -125,158 +140,59 @@ int Pioneer::getClosestSonar() {
 	return closestSonar;
 }
 
-int Pioneer::getTurningDirection() {
-	int closestSonar = getClosestSonar();
-	return SONAR_FRONT_RIGHT < closestSonar && closestSonar < SONAR_BACK_RIGHT ? DIRECTION_RIGHT : DIRECTION_LEFT;
-}
-
-double Pioneer::absDiff(double a, double b) {
-	return abs(abs(a) - abs(b));
-}
-
-void Pioneer::turnToNearestWall(int direction) {
-	double closestSonarAngle = getTrueSonarAngle(getClosestSonar());
+void Pioneer::turn(double angle, bool checkFrontLasers = true) {
+	int direction = angle > 0 ? DIRECTION_LEFT : DIRECTION_RIGHT;
 	double turningSpeed = FAST;
+	double targetAngle = position->GetYaw() + angle;
 
-	cout << "turnToNearestWall" << endl;
-	while (absDiff(position->GetYaw(), closestSonarAngle) > ANGLE) {
+	if (checkFrontLasers) {
+		targetAngle += getLaserAngleError(FRONT_LASER_THRESHOLD);
+	}
+
+	if (targetAngle < -M_PI) {
+		targetAngle += 2 * M_PI;
+	} else if (M_PI < targetAngle) {
+		targetAngle -= 2 * M_PI;
+	}
+
+	while (absDiff(targetAngle, position->GetYaw()) > ANGLE_GAP) {
 		robot->Read();
 
-		if (absDiff(position->GetYaw(), closestSonarAngle) < BIG_ANGLE) {
+		if (absDiff(targetAngle, position->GetYaw()) < BIG_ANGLE_GAP) {
 			turningSpeed = SLOW;
 		}
 		position->SetSpeed(0, turningSpeed * direction);
 	}
 }
 
-void Pioneer::turn90(int direction) {
-	double targetAngle = position->GetYaw() + direction * M_PI_2 + getLaserAngleError(10);
-	double turningSpeed = FAST;
-
-	if (targetAngle > M_PI) {
-		targetAngle = fmod(targetAngle, M_PI) - M_PI;
-	}
-
-	while (absDiff(targetAngle, position->GetYaw()) > ANGLE) {
-		robot->Read();
-
-		if (absDiff(targetAngle, position->GetYaw()) < BIG_ANGLE) {
-			turningSpeed = SLOW;
-		}
-		position->SetSpeed(0, turningSpeed * direction);
-	}
-}
-
-void Pioneer::driveToWall() {
+void Pioneer::drive() {
 	double speed = FAST;
 
-	cout << "driveToWall" << endl;
-	while (laser->GetRange(LASER_FRONT) > GAP) {
+	while (getFrontLaserRange() > GAP) {
 		robot->Read();
 
-		if (laser->GetRange(LASER_FRONT) < BIG_GAP) {
+		if (getFrontLaserRange() < BIG_GAP) {
 			speed = SLOW;
 		}
 		position->SetSpeed(speed, 0);
 	}
-
-	cornersCompleted++;
 }
 
 void Pioneer::run() {
-	int turningDirection = getTurningDirection();
+	//get to starting corner
+	turn(sonar->GetPose(getClosestSonar()).pyaw, false);
+	drive();
+	turn(M_PI_2);
+	drive();
 
-	turnToNearestWall(turningDirection);
-	driveToWall();
-
-	while (cornersCompleted < 4) {
-		turn90(-turningDirection);
-		driveToWall();
+	for (int wallsCompleted = 0; wallsCompleted < 100; wallsCompleted++) {
+		turn(M_PI_2);
+		drive();
 	}
-}
-
-////		while (true) {
-////			driveToNearestWall();
-////			driveAlongWall();
-////			if (obstacleInFront()) {
-////				if (voidOnLeft()) {
-////					turnLeft();
-////				} else if (voidOnRight()) {
-////					turnRight();
-////				}
-////			} else if (voidOnLeft()) {
-////				turnLeft();
-////			} else if (voidOnRight()) {
-////				turnRight();
-////			}
-////			pp.SetSpeed(1, 0);
-////		}
-////	while (true) {
-////		robot.Read();
-////		pp.SetSpeed(0, 1);
-////		//			cout << lp[0] << " " << lp[128] << " " << lp[256] << " " << lp[384] << endl;
-////		//			if (0 < lp[255] && lp[255] < 0.1) {
-////		//				pp.SetSpeed(0, 1);
-////		//				cout << lp[0] << endl;
-////		//				robot.Stop();
-////		//				return 0;
-////		//			}
-////	}
-//
-//	//		while (true) {
-//	//			robot.Read();
-//	//			pp.SetSpeed(0.1, 0);
-//	//			cout << sp[0] << " " << sp[4] << " " << sp[8] << " " << sp[12]
-//	//					<< endl;
-//	//			for (int i=0;i<16;i++) {
-//	//				if (0 < sp[i] && sp[i] < 0.3) {
-//	//					cout << i << endl;
-//	//				}
-//	//			}
-//	////			if (0 < sp[0] && sp[0] < 0.3) {
-//	////				cout << "l" << endl;
-//	////				robot.Stop();
-//	////				return 0;
-//	////			}
-//	////			if (0 < sp[4] && sp[4] < 0.3) {
-//	////				cout << "f" << endl;
-//	////				robot.Stop();
-//	////				return 0;
-//	////			}
-//	////			if (0 < sp[8] && sp[8] < 0.3) {
-//	////				cout << "r" << endl;
-//	////				robot.Stop();
-//	////				return 0;
-//	////			}
-//	////			if (0 < sp[12] && sp[12] < 0.3) {
-//	////				cout << "b" << endl;
-//	////				robot.Stop();
-//	////				return 0;
-//	////			}
-//	//		}
-//}
-
-//Called when the window is resized
-void handleResize(int w, int h) {
-	glViewport(0, 0, w, h);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	gluPerspective(45.0, (double) w / (double) h, 1.0, 200.0);
-}
-
-void showWindow(int argc, char **argv) {
-	glutInit(&argc, argv);
-	glutInitWindowSize(400, 400);
-	glutCreateWindow("Radar and Sonar Visualisation");
-	glutDisplayFunc(showLaserAndSonar);
-	glutReshapeFunc(handleResize);
-	glutIdleFunc(glutPostRedisplay);
-	glutMainLoop();
+	position->SetSpeed(0, 0);
 }
 
 int main(int argc, char **argv) {
-//	thread t(showWindow, argc, argv);
-
 	try {
 		Pioneer pioneer(argc, argv);
 		pioneer.run();
@@ -284,5 +200,11 @@ int main(int argc, char **argv) {
 		cout << e->GetErrorCode() << " " << e->GetErrorStr() << " " << e->GetErrorFun() << endl;
 		return -1;
 	}
-//	t.join();
+//	glutInit(&argc, argv);
+//	glutInitWindowSize(400, 400);
+//	glutCreateWindow("Radar and Sonar Visualisation");
+//	glutDisplayFunc(showLaserAndSonar);
+//	glutReshapeFunc(handleResize);
+//	glutIdleFunc(glutPostRedisplay);
+//	glutMainLoop();
 }

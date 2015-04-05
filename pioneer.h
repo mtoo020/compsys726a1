@@ -28,8 +28,6 @@ private:
 	LaserProxy* laser;
 //	SpeechProxy* speech;
 
-	int cornersCompleted = -2;
-
 	int DIRECTION_LEFT = 1;
 	int DIRECTION_RIGHT = -1;
 
@@ -38,41 +36,42 @@ private:
 	double ANGLE_RIGHT = 0;
 	double ANGLE_DOWN = -M_PI_2;
 
-	double BIG_ANGLE = M_PI/9;
-	double ANGLE = M_PI/60;
+	double BIG_ANGLE_GAP = M_PI/9;
+	double ANGLE_GAP = M_PI/60;
 	double BIG_GAP = 0.7;
 	double GAP = 0.4;
 	double SLOW = 0.2;
 	double FAST = 1;
 
+	int FRONT_LASER_THRESHOLD = 10;
+
 	int laserCount;
-	double LASER_LEFT;
-	double LASER_FRONT;
-	double LASER_RIGHT;
+	int LASER_LEFT;
+	int LASER_FRONT_LEFT;
+	int LASER_FRONT_RIGHT;
+	int LASER_RIGHT;
 
 	int sonarCount;
-	double SONAR_LEFT_FRONT;
-	double SONAR_LEFT_BACK;
-	double SONAR_FRONT_LEFT;
-	double SONAR_FRONT_RIGHT;
-	double SONAR_RIGHT_FRONT;
-	double SONAR_RIGHT_BACK;
-	double SONAR_BACK_LEFT;
-	double SONAR_BACK_RIGHT;
+	int SONAR_LEFT_FRONT;
+	int SONAR_LEFT_BACK;
+	int SONAR_FRONT_LEFT;
+	int SONAR_FRONT_RIGHT;
+	int SONAR_RIGHT_FRONT;
+	int SONAR_RIGHT_BACK;
+	int SONAR_BACK_LEFT;
+	int SONAR_BACK_RIGHT;
 
 	void printLaser();
 	void printSonar();
 
+	double absDiff(double a, double b);
+	double getLaserAngleError(int threshold);
+	double getFrontLaserRange();
 	int getClosestLaser();
 	int getClosestSonar();
-	double getLaserAngleError(int threshold);
-	double getTrueSonarAngle(int index);
-	int getTurningDirection();
-	double absDiff(double a, double b);
 
-	void turnToNearestWall(int direction);
-	void driveToWall();
-	void turn90(int direction);
+	void drive();
+	void turn(double angle, bool checkFrontLasers);
 
 public:
 	Pioneer(int argc, char **argv);
