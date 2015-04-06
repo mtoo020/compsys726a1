@@ -1,0 +1,49 @@
+# Size of a pixel in Stage’s underlying raytrace model in meters
+resolution 0.00390625
+
+include "pioneer.inc"
+include "irobot.inc"
+include "map.inc"
+include "sick.inc"
+
+# The window environment defines the properties of the GUI - it doesn’t affect the simulation
+window
+(
+size [ 1024.000 1024.000 ] # size in pixels
+center [0 0]
+scale 128 # pixels per meter
+show_data 1
+)
+# The floorplan enviornment defines the map properties, including the resolution, color and size
+# of the map.
+floorplan
+(
+bitmap "bitmaps/world.png" # Filename of the map
+map_resolution 0.00390625 # Resolution in meters/pixel
+size [4 4 4] # Size of the map in meters (x, y and z)
+name "emptyMap"
+color "gray50"
+gui_grid 1
+gui_outline 1
+)
+# Extend the pioneer2dx definition from pioneer.inc. This is used to add lasers to the robot and
+# to setup the localisation system of the robot.
+define mypioneer pioneer2dx
+(
+ranger( alwayson 0 )
+sicklaser( pose [0.030 0 0 0 ] alwayson 1 )
+gripper_return 0
+fiducial( range_max 8 range_max_id 5 )
+localization "gps"
+localization_origin [ 0 0 0 0 ]
+)
+mypioneer
+(
+name "robot1"
+# The starting robot pose can be set using the pose [xposition yposition zposition heading]
+# command. The x, y and z position are in meters while the heading is measured in degrees
+pose [1 1 0 90]
+# The gripper is not used in this class but it is useful to determine the orientation of the
+# robot at a glance
+ gripper( pose [0.000 0.000 -0.20 0.000] color "gray" )
+)

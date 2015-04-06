@@ -21,7 +21,6 @@ using namespace std;
 
 class Pioneer {
 private:
-	static Pioneer* pioneer;
 	PlayerClient* robot;
 	Position2dProxy* position;
 	SonarProxy* sonar;
@@ -36,12 +35,14 @@ private:
 	double ANGLE_RIGHT = 0;
 	double ANGLE_DOWN = -M_PI_2;
 
+	double ROOM_THRESHOLD = 0.8;
+	double OBJECT_THRESHOLD = ROOM_THRESHOLD / 2;
 	double BIG_ANGLE_GAP = M_PI/9;
 	double ANGLE_GAP = M_PI/60;
 	double BIG_GAP = 0.7;
 	double GAP = 0.4;
 	double SLOW = 0.2;
-	double FAST = 1;
+	double FAST = 0.5;
 
 	int FRONT_LASER_THRESHOLD = 10;
 
@@ -65,12 +66,11 @@ private:
 	void printSonar();
 
 	double absDiff(double a, double b);
-	double getLaserAngleError(int threshold);
 	double getFrontLaserRange();
-	int getClosestLaser();
-	int getClosestSonar();
+	double getClosestLaserAngle();
+	double getClosestSonarAngle();
 
-	void drive();
+	void drive(bool checkForCavity);
 	void turn(double angle, bool checkFrontLasers);
 
 public:

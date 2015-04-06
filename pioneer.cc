@@ -104,10 +104,10 @@ double Pioneer::getFrontLaserRange() {
 	return (laser->GetRange(LASER_FRONT_LEFT) + laser->GetRange(LASER_FRONT_RIGHT)) / 2;
 }
 
-double Pioneer::getLaserAngleError(int threshold) {
+double Pioneer::getClosestLaserAngle() {
 	int closestLaser = 0;
 	double minDistance = 100;
-	for (int i = LASER_FRONT_LEFT - threshold; i <= LASER_FRONT_RIGHT + threshold; i++) {
+	for (int i = LASER_FRONT_LEFT - FRONT_LASER_THRESHOLD; i < LASER_FRONT_RIGHT + FRONT_LASER_THRESHOLD; i++) {
 		if (laser->GetRange(i) < minDistance) {
 			closestLaser = i;
 			minDistance = laser->GetRange(i);
@@ -116,19 +116,7 @@ double Pioneer::getLaserAngleError(int threshold) {
 	return laser->GetBearing(closestLaser);
 }
 
-int Pioneer::getClosestLaser() {
-	int closestLaser = 0;
-	double minDistance = 100;
-	for (int i = 0; i < laserCount; i++) {
-		if (laser->GetRange(i) < minDistance) {
-			closestLaser = i;
-			minDistance = laser->GetRange(i);
-		}
-	}
-	return closestLaser;
-}
-
-int Pioneer::getClosestSonar() {
+double Pioneer::getClosestSonarAngle() {
 	int closestSonar = 0;
 	double minDistance = 100;
 	for (int i = 0; i < sonarCount; i++) {
@@ -137,7 +125,7 @@ int Pioneer::getClosestSonar() {
 			minDistance = sonar->GetScan(i);
 		}
 	}
-	return closestSonar;
+	return sonar->GetPose(closestSonar).pyaw;
 }
 
 void Pioneer::turn(double angle, bool checkFrontLasers = true) {
@@ -146,7 +134,7 @@ void Pioneer::turn(double angle, bool checkFrontLasers = true) {
 	double targetAngle = position->GetYaw() + angle;
 
 	if (checkFrontLasers) {
-		targetAngle += getLaserAngleError(FRONT_LASER_THRESHOLD);
+		targetAngle += getClosestLaserAngle();
 	}
 
 	if (targetAngle < -M_PI) {
@@ -165,11 +153,41 @@ void Pioneer::turn(double angle, bool checkFrontLasers = true) {
 	}
 }
 
-void Pioneer::drive() {
+void Pioneer::drive(bool checkForRooms = false) {
 	double speed = FAST;
+	double previousRange = laser->GetRange(LASER_RIGHT);
+	bool roomFound = false;
+	bool objectFound = false;
+	int objectsFound = 0;
 
 	while (getFrontLaserRange() > GAP) {
 		robot->Read();
+
+		if (checkForRooms) {
+			double increase = laser->GetRange(LASER_RIGHT) - previousRange;
+			double decrease = -increase;
+
+			if (ROOM_THRESHOLD < increase) {
+				roomFound = true;
+				speed = SLOW;
+				objectsFound = 0;
+				cout << "room start " << increase << endl;
+			} else if (roomFound) {
+				if (OBJECT_THRESHOLD < decrease && decrease < ROOM_THRESHOLD) {
+					objectFound = true;
+					cout << "object start " << decrease << endl;
+				} else if (objectFound && OBJECT_THRESHOLD < increase && increase < ROOM_THRESHOLD) {
+					objectsFound++;
+					objectFound = false;
+					cout << "object end " << increase << endl;
+				} else if (ROOM_THRESHOLD < decrease) {
+					roomFound = false;
+					speed = FAST;
+					cout << "room end " << decrease << endl;
+				}
+			}
+			previousRange = laser->GetRange(LASER_RIGHT);
+		}
 
 		if (getFrontLaserRange() < BIG_GAP) {
 			speed = SLOW;
@@ -179,15 +197,14 @@ void Pioneer::drive() {
 }
 
 void Pioneer::run() {
-	//get to starting corner
-	turn(sonar->GetPose(getClosestSonar()).pyaw, false);
+	turn(getClosestSonarAngle(), false);
 	drive();
 	turn(M_PI_2);
 	drive();
 
-	for (int wallsCompleted = 0; wallsCompleted < 100; wallsCompleted++) {
+	for (int wallsCompleted = 0; wallsCompleted < 4; wallsCompleted++) {
 		turn(M_PI_2);
-		drive();
+		drive(true);
 	}
 	position->SetSpeed(0, 0);
 }
