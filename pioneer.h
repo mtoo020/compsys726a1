@@ -15,6 +15,7 @@
 #include <GL/glut.h>
 #include <thread>
 #include <math.h>
+#include <time.h>
 
 using namespace PlayerCc;
 using namespace std;
@@ -35,6 +36,7 @@ private:
 	double ANGLE_RIGHT = 0;
 	double ANGLE_DOWN = -M_PI_2;
 
+	double HAND_THRESHOLD = 0.1;
 	double ROOM_THRESHOLD = 0.8;
 	double OBJECT_THRESHOLD = ROOM_THRESHOLD / 2;
 	double BIG_ANGLE_GAP = M_PI/9;
@@ -70,6 +72,7 @@ private:
 	double getClosestLaserAngle();
 	double getClosestSonarAngle();
 
+	void askIfOk();
 	void drive(bool checkForCavity);
 	void turn(double angle, bool checkFrontLasers);
 

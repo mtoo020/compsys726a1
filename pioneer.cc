@@ -128,6 +128,32 @@ double Pioneer::getClosestSonarAngle() {
 	return sonar->GetPose(closestSonar).pyaw;
 }
 
+void Pioneer::askIfOk() {
+	time_t startTime = time(0);
+	double referenceScans[sonarCount];
+	bool handDetected = false;
+
+	for (int i = 0; i < sonarCount; i++) {
+		referenceScans[i] = sonar->GetScan(i);
+	}
+
+	while (!handDetected && (time(0) - startTime) < 10) {
+		robot->Read();
+		for (int i = 0; i < sonarCount; i++) {
+			if (referenceScans[i] - sonar->GetScan(i) > HAND_THRESHOLD) {
+				handDetected = true;
+			}
+		}
+	}
+
+	if (handDetected) {
+		cout << "Got a response. Thanks human :)" << endl;
+	} else {
+		cout << "No response! Help!" << endl;
+	}
+
+}
+
 void Pioneer::turn(double angle, bool checkFrontLasers = true) {
 	int direction = angle > 0 ? DIRECTION_LEFT : DIRECTION_RIGHT;
 	double turningSpeed = FAST;
@@ -171,19 +197,40 @@ void Pioneer::drive(bool checkForRooms = false) {
 				roomFound = true;
 				speed = SLOW;
 				objectsFound = 0;
-				cout << "room start " << increase << endl;
+				//cout << "room start " << increase << endl;
+				cout << "Room found - analysing content" << endl;
 			} else if (roomFound) {
 				if (OBJECT_THRESHOLD < decrease && decrease < ROOM_THRESHOLD) {
 					objectFound = true;
-					cout << "object start " << decrease << endl;
+					//cout << "object start " << decrease << endl;
 				} else if (objectFound && OBJECT_THRESHOLD < increase && increase < ROOM_THRESHOLD) {
 					objectsFound++;
 					objectFound = false;
-					cout << "object end " << increase << endl;
+					//cout << "object end " << increase << endl;
 				} else if (ROOM_THRESHOLD < decrease) {
 					roomFound = false;
 					speed = FAST;
-					cout << "room end " << decrease << endl;
+					//cout << "room end " << decrease << endl;
+
+					switch (objectsFound) {
+					case 0:
+						cout << "Nothing" << endl;
+						//speak
+						break;
+					case 1:
+						cout << "An object" << endl;
+						break;
+					case 2:
+						cout << "A pair of legs" << endl;
+						position->SetSpeed(0, 0);
+						askIfOk();
+						break;
+					default:
+						cout << "Not sure" << endl;
+						break;
+					}
+					cout << endl;
+
 				}
 			}
 			previousRange = laser->GetRange(LASER_RIGHT);
@@ -197,16 +244,19 @@ void Pioneer::drive(bool checkForRooms = false) {
 }
 
 void Pioneer::run() {
+	cout << "Moving to a corner to start from" << endl;
 	turn(getClosestSonarAngle(), false);
 	drive();
 	turn(M_PI_2);
 	drive();
 
+	cout << "Starting search" << endl;
 	for (int wallsCompleted = 0; wallsCompleted < 4; wallsCompleted++) {
 		turn(M_PI_2);
 		drive(true);
 	}
 	position->SetSpeed(0, 0);
+	cout << "Search complete" << endl;
 }
 
 int main(int argc, char **argv) {
