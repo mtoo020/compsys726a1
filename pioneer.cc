@@ -5,6 +5,8 @@ SonarProxy* g_Sonar;
 
 //next steps
 //refer to assignment sheet
+//yaw based on wheel turn
+//try analysing the wall content
 
 void showLaserAndSonar() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -18,21 +20,20 @@ void showLaserAndSonar() {
 		for (int i = 0; i < n; i++) {
 //			player_pose3d_t pose = g_Laser->GetPose();
 			glVertex3d(0, 0, -5);
-			glVertex3d(0.2 * g_Laser->GetRange(i) * cos(i * M_PI / n), 0.2 * g_Laser->GetRange(i) * sin(i * M_PI / n),
-					-5);
+			glVertex3d(0.2 * g_Laser->GetRange(i) * cos(i * M_PI / n), 0.2 * g_Laser->GetRange(i) * sin(i * M_PI / n), -5);
 		}
 	}
 
-	if (g_Sonar) {
-		glColor3f(1, 1, 1);
-		int n = g_Sonar->GetCount();
-		for (int i = 0; i < n; i++) {
-			player_pose3d_t pose = g_Sonar->GetPose(i);
-			glVertex3d(-pose.py, pose.px, -5);
-			glVertex3d(-pose.py - 0.2 * g_Sonar->GetScan(i) * sin(pose.pyaw),
-					pose.px + 0.2 * g_Sonar->GetScan(i) * cos(pose.pyaw), -5);
-		}
-	}
+//	if (g_Sonar) {
+//		glColor3f(1, 1, 1);
+//		int n = g_Sonar->GetCount();
+//		for (int i = 0; i < n; i++) {
+//			player_pose3d_t pose = g_Sonar->GetPose(i);
+//			glVertex3d(-pose.py, pose.px, -5);
+//			glVertex3d(-pose.py - 0.2 * g_Sonar->GetScan(i) * sin(pose.pyaw),
+//					pose.px + 0.2 * g_Sonar->GetScan(i) * cos(pose.pyaw), -5);
+//		}
+//	}
 
 	glEnd();
 	glutSwapBuffers();
@@ -55,7 +56,7 @@ Pioneer::Pioneer(int argc, char **argv) {
 	sonar = new SonarProxy(robot, gIndex);
 	//	speech = new SpeechProxy(&robot, gIndex); not available
 
-//	laser->RequestGeom();
+	laser->RequestGeom();
 	sonar->RequestGeom();
 	g_Laser = laser;
 	g_Sonar = sonar;
@@ -104,7 +105,7 @@ double Pioneer::getFrontLaserRange() {
 	return (laser->GetRange(LASER_FRONT_LEFT) + laser->GetRange(LASER_FRONT_RIGHT)) / 2;
 }
 
-double Pioneer::getClosestLaserAngle() {
+double Pioneer::getClosestLaserAngle(int threshold = 0) {
 	int closestLaser = 0;
 	double minDistance = 100;
 	for (int i = LASER_FRONT_LEFT - FRONT_LASER_THRESHOLD; i < LASER_FRONT_RIGHT + FRONT_LASER_THRESHOLD; i++) {
@@ -113,6 +114,7 @@ double Pioneer::getClosestLaserAngle() {
 			minDistance = laser->GetRange(i);
 		}
 	}
+	//cout << LASER_FRONT_LEFT << " " << closestLaser << endl;
 	return laser->GetBearing(closestLaser);
 }
 
@@ -160,17 +162,21 @@ void Pioneer::turn(double angle, bool checkFrontLasers = true) {
 	double targetAngle = position->GetYaw() + angle;
 
 	if (checkFrontLasers) {
-		targetAngle += getClosestLaserAngle();
+		targetAngle += getClosestLaserAngle(20);
 	}
 
-	if (targetAngle < -M_PI) {
-		targetAngle += 2 * M_PI;
-	} else if (M_PI < targetAngle) {
-		targetAngle -= 2 * M_PI;
-	}
+//	if (targetAngle < -M_PI) {
+//		targetAngle += 2 * M_PI;
+//	} else if (M_PI < targetAngle) {
+//		targetAngle -= 2 * M_PI;
+//	}
+	// 0 to 2PI
+	targetAngle = fmod(targetAngle, 2 * M_PI);
 
 	while (absDiff(targetAngle, position->GetYaw()) > ANGLE_GAP) {
 		robot->Read();
+
+		//cout << position->GetYaw() << " " << targetAngle << endl;
 
 		if (absDiff(targetAngle, position->GetYaw()) < BIG_ANGLE_GAP) {
 			turningSpeed = SLOW;
@@ -192,6 +198,8 @@ void Pioneer::drive(bool checkForRooms = false) {
 		if (checkForRooms) {
 			double increase = laser->GetRange(LASER_RIGHT) - previousRange;
 			double decrease = -increase;
+
+			cout << increase << endl;
 
 			if (ROOM_THRESHOLD < increase) {
 				roomFound = true;
@@ -244,14 +252,19 @@ void Pioneer::drive(bool checkForRooms = false) {
 }
 
 void Pioneer::run() {
+	while (true) {
+		robot->Read();
+		position->SetSpeed(0,0.1);
+		cout << position->GetYaw() << endl;
+	}
 	cout << "Moving to a corner to start from" << endl;
-	turn(getClosestSonarAngle(), false);
+	turn(getClosestLaserAngle(), false);
 	drive();
 	turn(M_PI_2);
 	drive();
 
 	cout << "Starting search" << endl;
-	for (int wallsCompleted = 0; wallsCompleted < 4; wallsCompleted++) {
+	for (int wallsCompleted = 0; wallsCompleted < 100; wallsCompleted++) {
 		turn(M_PI_2);
 		drive(true);
 	}
@@ -259,7 +272,18 @@ void Pioneer::run() {
 	cout << "Search complete" << endl;
 }
 
+void test(int argc, char **argv) {
+	glutInit(&argc, argv);
+	glutInitWindowSize(400, 400);
+	glutCreateWindow("Radar and Sonar Visualisation");
+	glutDisplayFunc(showLaserAndSonar);
+	glutReshapeFunc(handleResize);
+	glutIdleFunc(glutPostRedisplay);
+	glutMainLoop();
+}
+
 int main(int argc, char **argv) {
+	thread t(test, argc, argv);
 	try {
 		Pioneer pioneer(argc, argv);
 		pioneer.run();
@@ -267,11 +291,4 @@ int main(int argc, char **argv) {
 		cout << e->GetErrorCode() << " " << e->GetErrorStr() << " " << e->GetErrorFun() << endl;
 		return -1;
 	}
-//	glutInit(&argc, argv);
-//	glutInitWindowSize(400, 400);
-//	glutCreateWindow("Radar and Sonar Visualisation");
-//	glutDisplayFunc(showLaserAndSonar);
-//	glutReshapeFunc(handleResize);
-//	glutIdleFunc(glutPostRedisplay);
-//	glutMainLoop();
 }

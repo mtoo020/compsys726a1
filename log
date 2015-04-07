@@ -1,0 +1,27 @@
+2/4/15
+Set up working environment
+Played around with real robots
+Created visualisation sonar data
+Created base code
+
+3/4/15
+Added laser data to the visualisation
+Confirmed index of left, right, front, back sonar and laser sensors in simulation
+
+4/4/15
+Added movement methods
+
+5/4/15
+Robot can now handle starting off at any angle
+
+6/4/15
+Robot can now detect side rooms, objects and humans and ask if the person is ok
+
+7/4/15 6:30pm - 10pm
+Tested code on a real robot, refined algorithm
+Found the following:
+Real robot
+has only 180 degrees of sonar (360 in simulation)
+yaw is from 0-2pi (0-pi-0 in simulation)
+uses wheel spin to determine yaw (rather than a compass)
+
