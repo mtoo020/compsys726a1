@@ -8,14 +8,17 @@
 #ifndef PIONEER_H_
 #define PIONEER_H_
 
+#define degrees(r) (r/(2*M_PI) * 360.0)
+#define radians(d) (d/360.0 * 2*M_PI)
+
 #include <libplayerc++/playerc++.h>
 #include <iostream>
-#include <stdlib.h>
+#include <cstdlib>
 #include "args.h"
 #include <GL/glut.h>
 #include <thread>
-#include <math.h>
-#include <time.h>
+#include <cmath>
+#include <ctime>
 
 using namespace PlayerCc;
 using namespace std;
@@ -26,7 +29,7 @@ private:
 	Position2dProxy* position;
 	SonarProxy* sonar;
 	LaserProxy* laser;
-//	SpeechProxy* speech;
+	SpeechProxy* speech;
 
 	int DIRECTION_LEFT = 1;
 	int DIRECTION_RIGHT = -1;
@@ -36,17 +39,19 @@ private:
 	double ANGLE_RIGHT = 0;
 	double ANGLE_DOWN = -M_PI_2;
 
-	double HAND_THRESHOLD = 0.1;
-	double ROOM_THRESHOLD = 0.5;
-	double OBJECT_THRESHOLD = ROOM_THRESHOLD / 2;
-	double BIG_ANGLE_GAP = M_PI/9;
-	double ANGLE_GAP = M_PI/60;
-	double BIG_GAP = 0.7;
-	double GAP = 0.4;
+	double BIG_ANGLE_GAP = radians(15);
+	double ANGLE_GAP = radians(1);
+	double BIG_GAP = 0.6;
+	double GAP = 0.3;
 	double SLOW = 0.2; //0.2 0.15 minimum robot
 	double FAST = 0.3;
+	double TURNING_ERROR = 0.05;
 
-	int FRONT_LASER_THRESHOLD = 20;
+	double ROOM_THRESHOLD = 0.3;
+	double OBJECT_THRESHOLD = ROOM_THRESHOLD / 3;
+	double HAND_THRESHOLD = 4;
+
+	int FRONT_LASER_THRESHOLD = 10;
 
 	int laserCount;
 	int LASER_LEFT;
@@ -64,17 +69,15 @@ private:
 	int SONAR_BACK_LEFT;
 	int SONAR_BACK_RIGHT;
 
-	void printLaser();
-	void printSonar();
-
-	double absDiff(double a, double b);
+	double angleDiff(double a, double b);
 	double getFrontLaserRange();
-	double getClosestLaserAngle(int threshold);
+	double getClosestFrontLaserAngle();
+	double getClosestLaserAngle();
 	double getClosestSonarAngle();
-
 	void askIfOk();
 	void drive(bool checkForCavity);
-	void turn(double angle, bool checkFrontLasers);
+	void turn(double angle);
+	void output(string text);
 
 public:
 	Pioneer(int argc, char **argv);
