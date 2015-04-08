@@ -40,14 +40,14 @@ private:
 	double ANGLE_DOWN = -M_PI_2;
 
 	double BIG_ANGLE_GAP = radians(15);
-	double ANGLE_GAP = radians(1);
-	double BIG_GAP = 0.6;
-	double GAP = 0.3;
+	double ANGLE_GAP = radians(3); //radians(1) robot
+	double BIG_GAP = 0.8; // 0.6 robot
+	double GAP = 0.5; //0.3 robot;
 	double SLOW = 0.2; //0.2 0.15 minimum robot
 	double FAST = 0.3;
-	double TURNING_ERROR = 0.05;
+	double TURNING_ERROR = radians(2); //0.05 robot;
 
-	double ROOM_THRESHOLD = 0.3;
+	double ROOM_THRESHOLD = 0.5;
 	double OBJECT_THRESHOLD = ROOM_THRESHOLD / 3;
 	double HAND_THRESHOLD = 4;
 

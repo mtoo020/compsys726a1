@@ -58,7 +58,7 @@ Pioneer::Pioneer(int argc, char **argv) {
 	position = new Position2dProxy(robot, gIndex);
 	laser = new LaserProxy(robot, gIndex);
 	sonar = new SonarProxy(robot, gIndex);
-	speech = new SpeechProxy(robot, gIndex);
+//	speech = new SpeechProxy(robot, gIndex);
 
 //	laser->RequestGeom();
 //	sonar->RequestGeom();
@@ -165,7 +165,7 @@ void Pioneer::drive(bool checkForRooms = false) {
 
 				}
 			}
-			if (n % 2 == 0) {
+			if (n % 1 == 0) {
 				previousRange = laser->GetRange(LASER_RIGHT);
 			}
 			n++;
@@ -273,7 +273,7 @@ void Pioneer::run() {
 	while (true) {
 		for (int i = 1; i <= 4; i++) {
 			drive(true);
-			turn(i * M_PI_2 - TURNING_ERROR);
+			turn(i * radians(90) - TURNING_ERROR);
 		}
 	}
 	position->SetSpeed(0, 0);
@@ -282,7 +282,9 @@ void Pioneer::run() {
 
 void Pioneer::output(string text) {
 	cout << text << endl;
-	speech->Say(text);
+//	speech->Say(text);
+//	thread t([this, text]{this->speech->Say(text);});
+////	t.join();
 }
 
 double Pioneer::getFrontLaserRange() {
