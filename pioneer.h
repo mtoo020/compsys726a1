@@ -31,6 +31,10 @@ private:
 	LaserProxy* laser;
 	SpeechProxy* speech;
 
+	double expectedYaw;
+
+	int DIRECTION_FORWARD = 1;
+	int DIRECTION_BACKWARD = -1;
 	int DIRECTION_LEFT = 1;
 	int DIRECTION_RIGHT = -1;
 
@@ -40,12 +44,10 @@ private:
 	double ANGLE_DOWN = -M_PI_2;
 
 	double BIG_ANGLE_GAP = radians(15);
-	double ANGLE_GAP = radians(3); //radians(1) robot
-	double BIG_GAP = 0.8; // 0.6 robot
-	double GAP = 0.5; //0.3 robot;
-	double SLOW = 0.2; //0.2 0.15 minimum robot
+	double BIG_GAP = 0.6;
+	double GAP = 0.25;
+	double SLOW = 0.2;
 	double FAST = 0.3;
-	double TURNING_ERROR = radians(2); //0.05 robot;
 
 	double ROOM_THRESHOLD = 0.5;
 	double OBJECT_THRESHOLD = ROOM_THRESHOLD / 3;
@@ -55,8 +57,10 @@ private:
 
 	int laserCount;
 	int LASER_LEFT;
+	int LASER_NW;
 	int LASER_FRONT_LEFT;
 	int LASER_FRONT_RIGHT;
+	int LASER_NE;
 	int LASER_RIGHT;
 
 	int sonarCount; //only front end
@@ -69,14 +73,16 @@ private:
 	int SONAR_BACK_LEFT;
 	int SONAR_BACK_RIGHT;
 
+	bool angleIsBetween(double start, double angle, double target, int direction);
 	double angleDiff(double a, double b);
 	double getFrontLaserRange();
-	double getClosestFrontLaserAngle();
-	double getClosestLaserAngle();
-	double getClosestSonarAngle();
-	void askIfOk();
-	void drive(bool checkForCavity);
+	int getClosestLaser();
+	void moveToStartingCorner();
 	void turn(double angle);
+	void drive(bool checkForRooms);
+	void drive(double distance);
+	void analyseRoom();
+	void askIfOk();
 	void output(string text);
 
 public:
