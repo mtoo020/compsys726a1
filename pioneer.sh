@@ -1,4 +1,4 @@
 killall pioneer
 make clean
 make
-./pioneer -h sleepy -p 6665
+./pioneer -h baldy -p 6665

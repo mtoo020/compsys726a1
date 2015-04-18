@@ -23,9 +23,9 @@ void showLaserAndSonar() {
 	if (g_Laser) {
 		glColor3f(0, 1, 0);
 		int n = g_Laser->GetCount();
-		for (int i = 0; i < n; i++) {
+		for (int i = 100; i < 3 * n / 8; i++) {
 			glVertex3d(0, 0, -5);
-			glVertex3d(g_Laser->GetPoint(i).px, g_Laser->GetPoint(i).py, -5);
+			glVertex3d(-g_Laser->GetPoint(i).py, g_Laser->GetPoint(i).px, -5);
 		}
 	}
 
@@ -35,8 +35,8 @@ void showLaserAndSonar() {
 //		for (int i = 0; i < n; i++) {
 //			player_pose3d_t pose = g_Sonar->GetPose(i);
 //			glVertex3d(-pose.py, pose.px, -5);
-//			glVertex3d(-pose.py - g_Sonar->GetScan(i) * sin(pose.pyaw),
-//					pose.px + g_Sonar->GetScan(i) * cos(pose.pyaw), -5);
+//			glVertex3d(-pose.py - g_Sonar->GetScan(i) * sin(pose.pyaw), pose.px + g_Sonar->GetScan(i) * cos(pose.pyaw),
+//					-5);
 //		}
 //	}
 
@@ -60,22 +60,23 @@ Pioneer::Pioneer(int argc, char **argv) {
 	sonar = new SonarProxy(robot, gIndex);
 	speech = new SpeechProxy(robot, gIndex);
 
-//	laser->RequestGeom();
+	laser->RequestGeom();
 //	sonar->RequestGeom();
-//	g_Laser = laser;
+	g_Laser = laser;
 //	g_Sonar = sonar;
 
 	position->SetMotorEnable(true);
 	robot->Read();
 	robot->Read();
-	expectedYaw = position->GetYaw();
-	cout << "expected yaw: " << expectedYaw << endl;
+	robot->Read();
 
 	laserCount = laser->GetCount();
 	LASER_LEFT = laserCount - 1;
 	LASER_NW = 3 * laserCount / 4;
 	LASER_FRONT_LEFT = laserCount / 2;
 	LASER_FRONT_RIGHT = laserCount / 2 + 1;
+	LASER_NNE = LASER_FRONT_LEFT + 20;
+	LASER_NNW = LASER_FRONT_RIGHT - 20;
 	LASER_NE = laserCount / 4;
 	LASER_RIGHT = 0;
 
@@ -90,87 +91,157 @@ Pioneer::Pioneer(int argc, char **argv) {
 	SONAR_BACK_RIGHT = 3 * sonarCount / 4 - 1;
 }
 
-void Pioneer::turn(double angle) {
-	int direction = angle > 0 ? DIRECTION_LEFT : DIRECTION_RIGHT; //had problems with turning where the yaw would continue in previous direction causing angleIsBetween to fail (angle outside of start and target)
-	double speed = FAST; //SLOW didn't work on sneezy in RCL
-	double startYaw = position->GetYaw();
-	double targetYaw = fmod(expectedYaw + angle, radians(360));
+double Pioneer::absDiff(double a, double b, bool absolute = true) {
+	double d = abs(a) - abs(b);
+	return absolute ? abs(d) : d;
+}
 
-	//while (angleDiff(startYaw, position->GetYaw()) < abs(angle)); use only with position->GetYaw() not expectedYaw
-	while (angleIsBetween(startYaw, position->GetYaw(), targetYaw, direction)) {
-		robot->Read();
-		if (angleDiff(targetYaw, position->GetYaw()) < BIG_ANGLE_GAP) {
-			speed = SLOW;
-		}
-		position->SetSpeed(0, speed * direction);
+void Pioneer::turn(double angle, bool useLasers) {
+	int direction = angle > 0 ? DIRECTION_LEFT : DIRECTION_RIGHT; //had problems with turning where the yaw would continue in previous direction causing angleIsBetween to fail (angle outside of start and target)
+	double startYaw = position->GetYaw();
+	double targetYaw = fmod(startYaw + angle, radians(360)); //expectedYaw
+	if (targetYaw < 0) {
+		targetYaw += radians(360);
 	}
-	expectedYaw = targetYaw;
-	cout << "overturn: " << angleDiff(position->GetYaw(), expectedYaw) << endl;
+
+	while (angleDiff(targetYaw, position->GetYaw()) > BIG_ANGLE_GAP) { //use only with position->GetYaw() not expectedYaw
+		robot->Read();
+		position->SetSpeed(0, FAST * direction);
+	}
+	if (useLasers) {
+		while (getRightDifference(true) > 0.005) {
+			robot->Read();
+			position->SetSpeed(0, SLOW * direction);
+			//		cout << "right x: " << absDiff(laser->GetPoint(LASER_RIGHT).px, laser->GetPoint(LASER_RIGHT + 20).px) << "y: "
+			//				<< absDiff(laser->GetPoint(LASER_RIGHT).py, laser->GetPoint(LASER_RIGHT + 20).py) << endl;
+			//		cout << "front x: " << absDiff(laser->GetPoint(LASER_NNE).px, laser->GetPoint(LASER_FRONT_RIGHT).px) << "y: "
+			//				<< absDiff(laser->GetPoint(LASER_NNE).py, laser->GetPoint(LASER_FRONT_RIGHT).py) << endl;
+		}
+	} else {
+		while (angleDiff(targetYaw, position->GetYaw()) > ANGLE_GAP) { //use only with position->GetYaw() not expectedYaw
+			robot->Read();
+			position->SetSpeed(0, SLOW * direction);
+		}
+	}
+}
+
+double Pioneer::getFrontDifference(bool absolute) {
+	return absDiff(laser->GetPoint(LASER_FRONT_RIGHT).px, laser->GetPoint(LASER_NNE).px, absolute);
+}
+
+double Pioneer::getRightDifference(bool absolute) {
+	return absDiff(laser->GetPoint(LASER_RIGHT + 20).py, laser->GetPoint(LASER_RIGHT).py, absolute);
+}
+
+void Pioneer::printLaserPoints() {
+	robot->Read();
+	for (int i = 140; i < 180; i++) {
+		player_point_2d p = laser->GetPoint(i);
+		cout << p.px << "\t" << p.py << endl;
+	}
 }
 
 void Pioneer::drive(bool checkForRooms = false) {
 	double speed = FAST;
-	double previousRange = laser->GetRange(LASER_RIGHT);
-	double roomStartPosition = 0;
+	double previousRange = laser->GetRange(LASER_RIGHT); //or use a range of lasers NE and E
+	double previousDifference = 0;
+	bool roomFound = false;
+	player_point_2d previousNE = laser->GetPoint(LASER_NE);
+	double yaw = 0;
+	double distanceToCorner = 0;
 
 	while (getFrontLaserRange() > GAP) {
 		robot->Read();
-
+//		cout << getFrontLaserRange() << endl;
 		if (checkForRooms) {
-			double increase = laser->GetRange(LASER_RIGHT) - previousRange;
-			double decrease = -increase;
+//			double rangeDifference = laser->GetRange(LASER_RIGHT) - previousRange;
+//			if (signOf(previousDifference) == signOf(rangeDifference) && abs(rangeDifference) > 0.001) {
+//				rangeDifference += previousDifference;
+//			}
 
-			if (abs(increase) > 0.1) {
-				cout << increase << endl;
-			}
+//			cout << "NE previous NEx: "
+//					<< absDiff(laser->GetPoint(LASER_RIGHT + 100).px, laser->GetPoint(LASER_RIGHT + 20).px, true)
+//					<< endl;
+//			cout << "NE previous NEy: "
+//					<< absDiff(laser->GetPoint(LASER_RIGHT + 100).py, laser->GetPoint(LASER_RIGHT + 20).py, true)
+//					<< endl;
 
-			if (ROOM_THRESHOLD < increase) {
-				roomStartPosition = position->GetXPos();
-				speed = SLOW;
-
-				cout << "room start " << increase << endl;
+			if (!roomFound) {
+				if (ROOM_THRESHOLD < getRightDifference(false)) {
+					speed = SLOW;
+					roomFound = true;
+					for (int i = 150; i < 200; i++) {
+						if (absDiff(laser->GetPoint(i).px, laser->GetPoint(i - 1).px) > 0.01) {
+							distanceToCorner = abs(laser->GetPoint(i).py);
+							cout << "distance: " << distanceToCorner << endl;
+							drive(distanceToCorner / 2);
+							break;
+						}
+					}
+				}
+			} else {
 				output("Room found - analysing content");
-			} else if (ROOM_THRESHOLD < decrease) {
-				double roomEndPosition = position->GetXPos();
-
-				drive((roomStartPosition - roomEndPosition) / 2);
-				turn(radians(-90));
+				turn(-radians(90), false);
 				analyseRoom();
-				turn(radians(90));
-				drive((roomEndPosition - roomStartPosition) / 2);
-				cout << "room end " << decrease << endl;
+				turn(radians(90), true);
+				cout << "distance: " << distanceToCorner << endl;
+				drive(distanceToCorner / 2);
+				roomFound = false;
+////				cout << "NE previous NEx: " << absDiff(laser->GetPoint(LASER_NE).px, previousNE.px) << endl;
+////				cout << "NE previous NEy: " << absDiff(laser->GetPoint(LASER_NE).py, previousNE.px) << endl;
+////				if (absDiff(laser->GetPoint(LASER_NE).px, previousNE.px) > 0.001) {
+////					cout << "NE previous NE: " << absDiff(laser->GetPoint(LASER_NE).px, previousNE) << endl;
+////				}
+//				//drive until px is half of it
+////				if (absDiff(laser->GetPoint(LASER_RIGHT + 100).px, laser->GetPoint(LASER_RIGHT + 20).px, true) < 0.1) {
+////				if (absDiff(laser->GetPoint(LASER_RIGHT + 100).px, laser->GetPoint(LASER_RIGHT + 20).px, true) < 0.1) {
+//				output("Room found - analysing content");
+//				turn(-radians(90), false);
+//				analyseRoom();
+//				turn(radians(90), false);
+//				roomFound = false;
 			}
+
 			previousRange = laser->GetRange(LASER_RIGHT);
+//			previousDifference = rangeDifference;
+			previousNE = laser->GetPoint(LASER_NE);
+		}
+
+		if (!roomFound) {
+			double difference = getRightDifference(false);
+			cout << difference << endl;
+			if (difference > 0.001) {
+				yaw = -0.1;
+			} else if (difference < -0.001) {
+				yaw = 0.1;
+			} else {
+				yaw = 0;
+			}
 		}
 
 		if (getFrontLaserRange() < BIG_GAP) {
 			speed = SLOW;
 		}
-		position->SetSpeed(speed, 0);
+		position->SetSpeed(speed, yaw);
 	}
-
-	robot->Read();
 }
 
+//drives too far after room
 void Pioneer::drive(double distance) {
 	int direction = distance > 0 ? DIRECTION_FORWARD : DIRECTION_BACKWARD;
-	double speed = FAST;
 	double startPosition = position->GetXPos();
 
-	while (abs(position->GetXPos() - startPosition) < abs(distance)) {
+	while (absDiff(startPosition, position->GetXPos()) < abs(distance) && getFrontLaserRange() < GAP) {
+		cout << "start: " << startPosition << " XPos" << position->GetXPos() << "distance: " << distance << endl;
 		robot->Read();
-		if (getFrontLaserRange() < BIG_GAP) {
-			speed = SLOW;
-		}
-		position->SetSpeed(speed * direction, 0);
+		position->SetSpeed(FAST * direction, 0);
 	}
 }
 
 void Pioneer::analyseRoom() {
 	int objectsFound = 0;
-
 	robot->Read();
-	for (int i = LASER_NW; i < LASER_NE; i++) {
+	for (int i = LASER_NE; i < LASER_NW; i++) {
 		if (laser->GetPoint(i - 1).px - laser->GetPoint(i).px > OBJECT_THRESHOLD) {
 			objectsFound++;
 		}
@@ -184,7 +255,7 @@ void Pioneer::analyseRoom() {
 		output("An object");
 		break;
 	case 2:
-		output("A pair of legs");
+		output("Are you ok?");
 		askIfOk();
 		break;
 	default:
@@ -193,29 +264,23 @@ void Pioneer::analyseRoom() {
 	}
 }
 
-void Pioneer::askIfOk() {
+void Pioneer::askIfOk() { // done
 	time_t startTime = time(0);
-	double referenceScans[sonarCount];
 	bool handDetected = false;
-
-	robot->Read();
-	for (int i = 0; i < sonarCount; i++) {
-		referenceScans[i] = sonar->GetScan(i);
-	}
 
 	while (!handDetected && (time(0) - startTime) < 10) {
 		robot->Read();
 		for (int i = 0; i < sonarCount; i++) {
-			if (abs(sonar->GetScan(i) - referenceScans[i]) > HAND_THRESHOLD) {
+			if (0.1 < sonar->GetScan(i) && sonar->GetScan(i) < HAND_THRESHOLD) {
 				handDetected = true;
 			}
 		}
 	}
 
 	if (handDetected) {
-		output("Got a response. Thanks human!");
+		output("I'm glad you're ok!");
 	} else {
-		output("No response! Help!");
+		output("Help! Help!");
 	}
 
 }
@@ -226,6 +291,7 @@ int Pioneer::getClosestLaser() {
 
 	robot->Read();
 	for (int i = 0; i < laserCount; i++) {
+		cout << i << ": " << laser->GetPoint(i) << endl;
 		if (laser->GetRange(i) < minDistance) {
 			closestLaser = i;
 			minDistance = laser->GetRange(i);
@@ -235,44 +301,43 @@ int Pioneer::getClosestLaser() {
 }
 
 void Pioneer::moveToStartingCorner() {
-	int closestFrontLaser = getClosestLaser();
-	double frontDistance = laser->GetRange(closestFrontLaser);
-	double frontAngle = laser->GetBearing(closestFrontLaser);
-
-	turn(radians(180));
-
-	int closestBackLaser = getClosestLaser();
-	double backDistance = laser->GetRange(closestBackLaser);
-	double backAngle = laser->GetBearing(closestBackLaser);
-
-	if (frontDistance < backDistance) {
-		turn(radians(180) + frontAngle);
-	} else {
-		turn(backAngle);
-	}
+	double frontAngle = laser->GetBearing(getClosestLaser());
+	turn(frontAngle, true);
 	drive();
-	turn(radians(90));
+	turn(radians(90), true);
 	drive();
 }
 
 void Pioneer::run() {
+	thread t([this] {this->runSpeechGenerator(); return;});
 	output("Moving to a corner to start from");
 	moveToStartingCorner();
-
 	output("Starting search");
 	for (int i = 0; i < 4; i++) {
-		turn(radians(90));
+		turn(radians(90), true);
 		drive(true);
 	}
 	output("Search complete");
+	exitThread = true;
+	t.join();
 	position->SetSpeed(0, 0);
+}
+
+void Pioneer::runSpeechGenerator() {
+	while (true) {
+		if (!dialogue.empty()) {
+			speech->Say(dialogue.front());
+			dialogue.pop();
+			sleep(2);
+		} else if (exitThread) {
+			return;
+		}
+	}
 }
 
 void Pioneer::output(string text) {
 	cout << text << endl;
-//	speech->Say(text);
-//	thread t([this, text]{this->speech->Say(text);});
-////	t.join();
+	dialogue.push(text);
 }
 
 double Pioneer::getFrontLaserRange() {
@@ -280,7 +345,7 @@ double Pioneer::getFrontLaserRange() {
 }
 
 bool Pioneer::angleIsBetween(double start, double angle, double target, int direction) {
-//	cout << start << " " << angle << " " << target << " " << direction << endl;
+	cout << start << " " << angle << " " << target << " " << direction << endl;
 	if (direction == DIRECTION_LEFT) {
 		//robot does not need to go past 0/360 mark
 		if (start < target) {
@@ -292,12 +357,16 @@ bool Pioneer::angleIsBetween(double start, double angle, double target, int dire
 	if (target == 0) {
 		return start >= angle;
 	}
-	//robot does not need to go past 0/360 mark
+//robot does not need to go past 0/360 mark
 	if (start > target) {
 		return angle > target;
 	}
-	//before 0/360 mark, angle <= start, afterwards target < angle
+//before 0/360 mark, angle <= start, afterwards target < angle
 	return start >= angle || angle > target;
+}
+
+int Pioneer::signOf(double n) {
+	return n < 0 ? -1 : 1;
 }
 
 double Pioneer::angleDiff(double a, double b) {

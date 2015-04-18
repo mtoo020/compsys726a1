@@ -19,6 +19,7 @@
 #include <thread>
 #include <cmath>
 #include <ctime>
+#include <queue>
 
 using namespace PlayerCc;
 using namespace std;
@@ -31,8 +32,6 @@ private:
 	LaserProxy* laser;
 	SpeechProxy* speech;
 
-	double expectedYaw;
-
 	int DIRECTION_FORWARD = 1;
 	int DIRECTION_BACKWARD = -1;
 	int DIRECTION_LEFT = 1;
@@ -44,22 +43,25 @@ private:
 	double ANGLE_DOWN = -M_PI_2;
 
 	double BIG_ANGLE_GAP = radians(15);
-	double BIG_GAP = 0.6;
-	double GAP = 0.25;
+	double ANGLE_GAP = radians(2);
+	double BIG_GAP = 0.9;
+	double GAP = 0.35;
 	double SLOW = 0.2;
 	double FAST = 0.3;
 
-	double ROOM_THRESHOLD = 0.5;
-	double OBJECT_THRESHOLD = ROOM_THRESHOLD / 3;
-	double HAND_THRESHOLD = 4;
+	double ROOM_THRESHOLD = 0.3;
+	double OBJECT_THRESHOLD = ROOM_THRESHOLD / 4;
+	double HAND_THRESHOLD = 0.25;
 
 	int FRONT_LASER_THRESHOLD = 10;
 
 	int laserCount;
 	int LASER_LEFT;
 	int LASER_NW;
+	int LASER_NNW;
 	int LASER_FRONT_LEFT;
 	int LASER_FRONT_RIGHT;
+	int LASER_NNE;
 	int LASER_NE;
 	int LASER_RIGHT;
 
@@ -73,17 +75,27 @@ private:
 	int SONAR_BACK_LEFT;
 	int SONAR_BACK_RIGHT;
 
+	queue<string> dialogue;
+	bool exitThread = false;
+
+	double absDiff(double a, double b, bool absolute);
 	bool angleIsBetween(double start, double angle, double target, int direction);
+	int signOf(double n);
 	double angleDiff(double a, double b);
+
 	double getFrontLaserRange();
 	int getClosestLaser();
+	void runSpeechGenerator();
 	void moveToStartingCorner();
-	void turn(double angle);
+	void turn(double angle, bool useLasers);
 	void drive(bool checkForRooms);
 	void drive(double distance);
 	void analyseRoom();
 	void askIfOk();
 	void output(string text);
+	double getRightDifference(bool absolute);
+	double getFrontDifference(bool absolute);
+	void printLaserPoints();
 
 public:
 	Pioneer(int argc, char **argv);
