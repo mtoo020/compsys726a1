@@ -42,11 +42,11 @@ private:
 	double ANGLE_RIGHT = 0;
 	double ANGLE_DOWN = -M_PI_2;
 
-	double BIG_ANGLE_GAP = radians(10);
+	double BIG_ANGLE_GAP = radians(5);
 	double ANGLE_GAP = radians(2);
 	double BIG_GAP = 0.6;
 	double GAP = 0.4;
-	double SLOW = 0.25;
+	double SLOW = 0.2;
 	double FAST = 0.3;
 
 	double ROOM_THRESHOLD = 0.3;
@@ -58,7 +58,6 @@ private:
 	int laserCount;
 	int LASER_LEFT;
 	int LASER_NW;
-	int LASER_NNW;
 	int LASER_FRONT_LEFT;
 	int LASER_FRONT_RIGHT;
 	int LASER_NE;
@@ -78,13 +77,6 @@ private:
 	queue<string> dialogue;
 	bool exitThread = false;
 
-	double absDiff(double a, double b, bool absolute);
-	bool angleIsBetween(double start, double angle, double target, int direction);
-	int signOf(double n);
-	double angleDiff(double a, double b);
-
-	double getFrontLaserRange();
-	int getClosestLaser();
 	void runSpeechGenerator();
 	void moveToStartingCorner();
 	void turn(double angle, bool useLasers);
@@ -93,12 +85,16 @@ private:
 	void analyseRoom();
 	void askIfOk();
 	void output(string text);
+
+	double getFrontLaserRange();
+	int getClosestLaser(int first, int last);
 	double getRightDifference(bool absolute);
-	double getFrontDifference(bool absolute);
 	void printLaserPoints();
 	player_point_2d getLaserPoint(int i);
 	player_point_2d rotate90(player_point_2d point);
 	double distanceBetween(player_point_2d a, player_point_2d b);
+	double absDiff(double a, double b, bool absolute);
+	double angleDiff(double a, double b);
 
 public:
 	Pioneer(int argc, char **argv);
