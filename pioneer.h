@@ -42,16 +42,16 @@ private:
 	double ANGLE_RIGHT = 0;
 	double ANGLE_DOWN = -M_PI_2;
 
-	double BIG_ANGLE_GAP = radians(15);
+	double BIG_ANGLE_GAP = radians(10);
 	double ANGLE_GAP = radians(2);
-	double BIG_GAP = 0.9;
-	double GAP = 0.35;
-	double SLOW = 0.2;
+	double BIG_GAP = 0.6;
+	double GAP = 0.4;
+	double SLOW = 0.25;
 	double FAST = 0.3;
 
 	double ROOM_THRESHOLD = 0.3;
-	double OBJECT_THRESHOLD = ROOM_THRESHOLD / 4;
-	double HAND_THRESHOLD = 0.25;
+	double OBJECT_THRESHOLD = ROOM_THRESHOLD / 2;
+	double HAND_THRESHOLD = 0.2;
 
 	int FRONT_LASER_THRESHOLD = 10;
 
@@ -61,8 +61,8 @@ private:
 	int LASER_NNW;
 	int LASER_FRONT_LEFT;
 	int LASER_FRONT_RIGHT;
-	int LASER_NNE;
 	int LASER_NE;
+	int LASER_NEE;
 	int LASER_RIGHT;
 
 	int sonarCount; //only front end
@@ -96,6 +96,9 @@ private:
 	double getRightDifference(bool absolute);
 	double getFrontDifference(bool absolute);
 	void printLaserPoints();
+	player_point_2d getLaserPoint(int i);
+	player_point_2d rotate90(player_point_2d point);
+	double distanceBetween(player_point_2d a, player_point_2d b);
 
 public:
 	Pioneer(int argc, char **argv);
