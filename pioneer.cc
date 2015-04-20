@@ -84,20 +84,20 @@ Pioneer::Pioneer(int argc, char **argv) {
 	LASER_LEFT = laserCount - 1;
 	LASER_NW = 3 * laserCount / 4;
 	LASER_FRONT_LEFT = laserCount / 2;
-	LASER_FRONT_RIGHT = laserCount / 2 + 1;
+	LASER_FRONT_RIGHT = laserCount / 2 - 1;
 	LASER_NE = laserCount / 4;
 	LASER_RIGHT = 0;
 	LASER_NEE = LASER_RIGHT + 10;
 
 	sonarCount = sonar->GetCount();
-	SONAR_LEFT_FRONT = 0;
-	SONAR_LEFT_BACK = sonarCount - 1;
-	SONAR_FRONT_LEFT = sonarCount / 4 - 1;
-	SONAR_FRONT_RIGHT = sonarCount / 4;
-	SONAR_RIGHT_FRONT = sonarCount / 2 - 1;
-	SONAR_RIGHT_BACK = sonarCount / 2;
-	SONAR_BACK_LEFT = 3 * sonarCount / 4;
-	SONAR_BACK_RIGHT = 3 * sonarCount / 4 - 1;
+//	SONAR_LEFT_FRONT = 0;
+//	SONAR_LEFT_BACK = sonarCount - 1;
+//	SONAR_FRONT_LEFT = sonarCount / 4 - 1;
+//	SONAR_FRONT_RIGHT = sonarCount / 4;
+//	SONAR_RIGHT_FRONT = sonarCount / 2 - 1;
+//	SONAR_RIGHT_BACK = sonarCount / 2;
+//	SONAR_BACK_LEFT = 3 * sonarCount / 4;
+//	SONAR_BACK_RIGHT = 3 * sonarCount / 4 - 1;
 }
 
 void Pioneer::turn(double angle, bool useLasers) {
@@ -113,7 +113,7 @@ void Pioneer::turn(double angle, bool useLasers) {
 		position->SetSpeed(0, FAST * direction);
 	}
 	if (useLasers) {
-		while (getRightDifference(true) > 0.002) { //verified - more accurate than getFrontLaser()
+		while (getLaserPoint(LASER_NEE).px - getLaserPoint(LASER_RIGHT).px > 0.002) { //verified - more accurate than getFrontLaser()
 			robot->Read();
 			position->SetSpeed(0, SLOW * direction);
 		}
@@ -123,53 +123,46 @@ void Pioneer::turn(double angle, bool useLasers) {
 			position->SetSpeed(0, SLOW * direction);
 		}
 	}
+	position->SetSpeed(0, 0);
 }
 
-void Pioneer::drive(bool checkForRooms = false) {
+void Pioneer::drive(bool checkForRooms = false) { //driving away needs improvement
 	double speed = FAST;
-	bool roomFound = false;
 	double yaw = 0;
-	bool analysed = false;
+//	double distanceToCorner = 0;
 
-	while (getFrontLaserRange() > GAP) {
+	while (getFrontLaserRange() > FRONT_GAP) {
 		robot->Read();
+
 		if (checkForRooms) {
-			if (!roomFound) {
-				if (ROOM_THRESHOLD < getRightDifference(true)) { //verify - might need to be RIGHT+3 or true
-					speed = SLOW;
-					roomFound = true;
-					analysed = false;
-					drive(0.3);
-					//could use this
-//					for (int i = 120; i < 180; i++) { //verify with object in room
-//						if (absDiff(getLaserPoint(i).py, getLaserPoint(i - 1).py, true) > 0.01) { //verify
-//							distanceToCorner = abs(getLaserPoint(i).py);
-////							distanceToCorner = std::min(distanceToCorner, 60.0);
-//							cout << "distance: " << getLaserPoint(i) << endl;
-//							drive(distanceToCorner / 2);
-//							break;
-//						}
+			double distance = laser->GetRange(LASER_RIGHT);
+			double difference = getLaserPoint(LASER_NEE).px - getLaserPoint(LASER_RIGHT).px;
+			if (difference > 0.001 && distance > RIGHT_GAP && distance < ROOM_THRESHOLD) {
+				yaw = -0.12;
+			} else if (difference < -0.001 && distance < RIGHT_GAP) {
+				yaw = 0.12;
+			} else {
+				yaw = 0;
+			}
+			if (distance > ROOM_THRESHOLD) { //verify
+				double startYaw = position->GetYaw();
+				drive(0.25);
+//				printLaserPoints();
+//				for (int i = 120; i < 180; i++) { //verify with object in room
+//					if (getLaserPoint(i).py - getLaserPoint(i - 1).py > 0.01) { //verify
+//						distanceToCorner = abs(getLaserPoint(i).py);
+//						drive(distanceToCorner / 2);
+//						break;
 //					}
-				} else { //verified on stage
-					double difference = getRightDifference(false);
-					double distance = laser->GetRange(LASER_RIGHT);
-					cout << difference << endl;
-					if (difference > 0.001 && distance > GAP) {
-						yaw = -0.1;
-					} else if (difference < -0.001 && distance < GAP) {
-						yaw = 0.1;
-					} else {
-						yaw = 0;
-					}
-				}
-			} else if (!analysed) {
-				output("Room found - analysing content");
-				turn(-radians(90), false);
+//				}
+				output("Room found, analysing content");
+				turn(-radians(90), false); //compare sides of room
+//				correctYaw();
 				analyseRoom();
-				analysed = true;
-				turn(radians(90), false);
-				drive(0.3);
-				roomFound = false;
+				turn(angleDiff(position->GetYaw(), startYaw), false);
+//				drive(distanceToCorner / 2);
+				drive(0.3); //or drive until out of room
+				cout << "out" << endl;
 			}
 		}
 		if (getFrontLaserRange() < BIG_GAP) {
@@ -177,28 +170,61 @@ void Pioneer::drive(bool checkForRooms = false) {
 		}
 		position->SetSpeed(speed, yaw);
 	}
+	position->SetSpeed(0, 0);
 }
 
-void Pioneer::drive(double distance) {
+void Pioneer::drive(double distance) { //verified
 	int direction = distance > 0 ? DIRECTION_FORWARD : DIRECTION_BACKWARD;
 	player_point_2d startPosition = rotate90( { position->GetXPos(), position->GetYPos() });
 	player_point_2d currentPosition = startPosition;
 
-	while (distanceBetween(startPosition, currentPosition) < distance) { //verify
+	while (distanceBetween(startPosition, currentPosition) < distance && getFrontLaserRange() > FRONT_GAP) {
 		currentPosition = rotate90( { position->GetXPos(), position->GetYPos() });
 		robot->Read();
 		position->SetSpeed(SLOW * direction, 0);
 	}
+	position->SetSpeed(0, 0);
 }
 
-void Pioneer::analyseRoom() { //verify
+//void Pioneer::correctYaw() {
+//	double dx = 0;
+//	double dy = 0;
+//	int n = 10;
+//
+//	for (int i = LASER_NE + 1; i < LASER_NE + n; i++) {
+//		dx += getLaserPoint(i).px - getLaserPoint(i - 1).px;
+//		dy += getLaserPoint(i).py - getLaserPoint(i - 1).py;
+//	}
+//	double averageDX = getLaserPoint(LASER_NE + n).px - getLaserPoint(LASER_NE).px;
+//	double averageDY = getLaserPoint(LASER_NE + n).py - getLaserPoint(LASER_NE).py;
+//	double adjacent = dy;
+//	double opposite = dx;
+//
+//	cout << averageDX << " " << dx << endl;
+//	cout << averageDY << " " << dy << endl;
+//	if (abs(averageDX - dx) < 0.01 && abs(averageDY - dy) < 0.01) {
+//		cout << degrees(atan(opposite / adjacent)) << endl;
+//	}
+//	printLaserPoints();
+//}
+
+void Pioneer::analyseRoom() { //verify - not working at angles
 	int objectsFound = 0;
+	int lastObjectDetection = -100;
+
 	robot->Read();
-	for (int i = LASER_NE; i < LASER_NW; i += 3) {
-		if (getLaserPoint(i - 3).py - getLaserPoint(i).py > OBJECT_THRESHOLD) { //try i+=5 and i-5 in case of curvy objects
-			objectsFound++;
+	for (int i = LASER_NE; i < LASER_NW; i++) {
+		if (abs(distanceBetween(getLaserPoint(i), getLaserPoint(i - 1))) > OBJECT_THRESHOLD) {
+			if (abs(lastObjectDetection - i) > 5) {
+				objectsFound++;
+				lastObjectDetection = i;
+			}
 		}
 	}
+
+	objectsFound = ceil(objectsFound / 2.0);
+
+	printLaserPoints();
 
 	switch (objectsFound) {
 	case 0:
@@ -227,6 +253,9 @@ void Pioneer::askIfOk() { // done - verified
 			if (0.1 < sonar->GetScan(i) && sonar->GetScan(i) < HAND_THRESHOLD) {
 				handDetected = true;
 			}
+			if (0.1 < sonar->GetScan(i) && sonar->GetScan(i) < 0.5) {
+				cout << "Sonar " << i << ": " << sonar->GetScan(i) << endl;
+			}
 		}
 	}
 
@@ -239,8 +268,8 @@ void Pioneer::askIfOk() { // done - verified
 }
 
 void Pioneer::moveToStartingCorner() {
-	output("Moving to a corner to start from");
-	double frontAngle = laser->GetBearing(getClosestLaser(0, laserCount));
+	output("Moving to a starting corner");
+	double frontAngle = getClosestLaserBearing(0, laserCount);
 	turn(frontAngle, true);
 	drive();
 	turn(radians(90), true);
@@ -248,21 +277,17 @@ void Pioneer::moveToStartingCorner() {
 }
 
 void Pioneer::run() {
-//	thread t([this] {this->runSpeechGenerator(); return;});
-//	moveToStartingCorner();
-//	output("Starting search");
-//	drive(false);
-
+	thread t([this] {this->runSpeechGenerator(); return;});
+	moveToStartingCorner();
+	output("Starting search");
 	for (int i = 0; i < 4; i++) {
 		turn(radians(90), true);
 		drive(true);
-		cout << i << endl;
 	}
-//	printLaserPoints();
-//	output("Search complete");
-//	exitThread = true;
-//	position->SetSpeed(0, 0); //otherwise it will continue while it waits
-//	t.join();
+	output("Search complete");
+	exitThread = true;
+	position->SetSpeed(0, 0); //otherwise it will continue while it waits
+	t.join();
 	position->SetSpeed(0, 0);
 }
 
@@ -292,19 +317,13 @@ double Pioneer::angleDiff(double a, double b) {
 	return (d < M_PI) ? d : 2 * M_PI - d;
 }
 
-double Pioneer::absDiff(double a, double b, bool absolute = true) {
-	double d = abs(a) - abs(b);
-	return absolute ? abs(d) : d;
-	//why not abs(a-b)
-}
-
 double Pioneer::distanceBetween(player_point_2d a, player_point_2d b) {
 	double dx = b.px - a.px;
 	double dy = b.py - a.py;
 	return sqrt(dx * dx + dy * dy);
 }
 
-int Pioneer::getClosestLaser(int first, int last) {
+double Pioneer::getClosestLaserBearing(int first, int last) {
 	int closestLaser = 0;
 	double minDistance = laser->GetRange(0);
 
@@ -315,12 +334,7 @@ int Pioneer::getClosestLaser(int first, int last) {
 			minDistance = laser->GetRange(i);
 		}
 	}
-	cout << closestLaser << ": " << minDistance << endl;
-	return closestLaser;
-}
-
-double Pioneer::getRightDifference(bool absolute) {
-	return absDiff(getLaserPoint(LASER_NEE).px, getLaserPoint(LASER_RIGHT).px, absolute);
+	return laser->GetBearing(closestLaser);
 }
 
 void Pioneer::printLaserPoints() {

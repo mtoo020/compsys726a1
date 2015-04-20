@@ -37,23 +37,16 @@ private:
 	int DIRECTION_LEFT = 1;
 	int DIRECTION_RIGHT = -1;
 
-	double ANGLE_LEFT = M_PI;
-	double ANGLE_UP = M_PI_2;
-	double ANGLE_RIGHT = 0;
-	double ANGLE_DOWN = -M_PI_2;
-
 	double BIG_ANGLE_GAP = radians(5);
-	double ANGLE_GAP = radians(2);
 	double BIG_GAP = 0.6;
-	double GAP = 0.4;
+	double FRONT_GAP = 0.4; //0.35 for smaller
+	double RIGHT_GAP = 0.4; //0.4 for smaller
 	double SLOW = 0.2;
 	double FAST = 0.3;
 
-	double ROOM_THRESHOLD = 0.3;
-	double OBJECT_THRESHOLD = ROOM_THRESHOLD / 2;
-	double HAND_THRESHOLD = 0.2;
-
-	int FRONT_LASER_THRESHOLD = 10;
+	double ROOM_THRESHOLD = 0.75;
+	double OBJECT_THRESHOLD = 0.1;
+	double HAND_THRESHOLD = 0.25;
 
 	int laserCount;
 	int LASER_LEFT;
@@ -64,7 +57,7 @@ private:
 	int LASER_NEE;
 	int LASER_RIGHT;
 
-	int sonarCount; //only front end
+	int sonarCount;
 	int SONAR_LEFT_FRONT;
 	int SONAR_LEFT_BACK;
 	int SONAR_FRONT_LEFT;
@@ -87,14 +80,12 @@ private:
 	void output(string text);
 
 	double getFrontLaserRange();
-	int getClosestLaser(int first, int last);
-	double getRightDifference(bool absolute);
-	void printLaserPoints();
+	double getClosestLaserBearing(int first, int last);
 	player_point_2d getLaserPoint(int i);
 	player_point_2d rotate90(player_point_2d point);
 	double distanceBetween(player_point_2d a, player_point_2d b);
-	double absDiff(double a, double b, bool absolute);
 	double angleDiff(double a, double b);
+	void printLaserPoints();
 
 public:
 	Pioneer(int argc, char **argv);

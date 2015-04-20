@@ -1,4 +1,4 @@
 killall pioneer
 make clean
 make
-./pioneer -h sneezy -p 6665
+./pioneer -h bashful -p 6665
