@@ -15,7 +15,6 @@
 #include <iostream>
 #include <cstdlib>
 #include "args.h"
-#include <GL/glut.h>
 #include <thread>
 #include <cmath>
 #include <ctime>
@@ -28,8 +27,8 @@ class Pioneer {
 private:
 	PlayerClient* robot;
 	Position2dProxy* position;
-	SonarProxy* sonar;
 	LaserProxy* laser;
+	SonarProxy* sonar;
 	SpeechProxy* speech;
 
 	int DIRECTION_FORWARD = 1;
@@ -39,8 +38,8 @@ private:
 
 	double BIG_ANGLE_GAP = radians(5);
 	double BIG_GAP = 0.6;
-	double FRONT_GAP = 0.4; //0.35 for smaller
-	double RIGHT_GAP = 0.4; //0.4 for smaller
+	double FRONT_GAP = 0.4;
+	double RIGHT_GAP = 0.4;
 	double SLOW = 0.2;
 	double FAST = 0.3;
 
@@ -54,26 +53,18 @@ private:
 	int LASER_FRONT_LEFT;
 	int LASER_FRONT_RIGHT;
 	int LASER_NE;
-	int LASER_NEE;
+	int LASER_ENE;
 	int LASER_RIGHT;
 
 	int sonarCount;
-	int SONAR_LEFT_FRONT;
-	int SONAR_LEFT_BACK;
-	int SONAR_FRONT_LEFT;
-	int SONAR_FRONT_RIGHT;
-	int SONAR_RIGHT_FRONT;
-	int SONAR_RIGHT_BACK;
-	int SONAR_BACK_LEFT;
-	int SONAR_BACK_RIGHT;
 
 	queue<string> dialogue;
 	bool exitThread = false;
 
 	void runSpeechGenerator();
 	void moveToStartingCorner();
-	void turn(double angle, bool useLasers);
-	void drive(bool checkForRooms);
+	void turn(double angle, bool useLasers = false);
+	void drive(bool checkForRooms = false);
 	void drive(double distance);
 	void analyseRoom();
 	void askIfOk();
@@ -85,7 +76,6 @@ private:
 	player_point_2d rotate90(player_point_2d point);
 	double distanceBetween(player_point_2d a, player_point_2d b);
 	double angleDiff(double a, double b);
-	void printLaserPoints();
 
 public:
 	Pioneer(int argc, char **argv);
