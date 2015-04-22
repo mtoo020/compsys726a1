@@ -1,3 +1,10 @@
+/*
+ * pioneer.cc
+ *
+ *  Created on: 2 Apr 2015
+ *      Author: mtoo020
+ */
+
 #include "pioneer.h"
 
 // Represents the robot.

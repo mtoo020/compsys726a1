@@ -1,39 +1,63 @@
-2/4/15 7:30pm - 12am
+2/4/15 5:30pm - 10pm
 Set up working environment
 Played around with real robots
-Created OpenGL visualisation of sonar data
 Created base code
+Created OpenGL visualisation of sonar data
+Created a map without rooms
 
 3/4/15 1:30am - 4:50am
 Added laser data to the visualisation
 Confirmed index of left, right, front, back sonar and laser sensors in simulation
 
 4/4/15 2am - 4:30am
-Added movement methods
+Added turning and driving methods
 
-5/4/15 2pm - 4:30pm
-Robot can now handle starting off at any angle
+5/4/15 2pm - 5:20pm
+Used sonar to reorientate the robot to be perpedicular with the closest wall if initially placed at an angle
+Created a map with rooms
 
 7/4/15 1:30am - 3am
-Robot can now detect side rooms, objects and humans and ask if the person is ok
+Added side room, object and human detection.
+Robot also now waits for a response if a pair of legs is found.
 
 7/4/15 6:30pm - 10pm
-Tested code on a real robot, refined algorithm
+Tested code on a real robot
+Changed from using sonar to using laser when initiall orientating the robot
 Found the following:
 Real robot
 has only 180 degrees of sonar on some robots (360 in simulation and on other robots)
 yaw is from 0-2pi (0 to pi/-pi to 0 in simulation)
 uses wheel spin to determine yaw
+has a minimum turn speed of about 0.15 
 
-8/4/15 6pm - 12am
+8/4/15 6pm - 10pm
 Added speech thread and speech generation method
 Improved turning accuracy
-Made adjustments to threshold values
+Started using laser points rather than ranges
+Improved room/object/human detection
 
-14/4/15 3pm-12am
-Robot can now turn and face a room
+14/4/15 3pm - 10pm
+Robot now turns and faces room when analysing rather than doing a drive-by analysis.
+Improved turning accuracy
+Discovered robot names (instead of IP addresses) can be used when connecting
 
-18/4/15 3pm-12am
-Nearly done
+18/4/15 3pm - 10pm
+Added wall-checking when driving a specific distance
+Stopped doing a 360 degree laser scan in the beginning to find the closest wall as it's too slow. Just doing a 180 degree laser scan now. 
+Improved room/hand detection
+Speech thread now uses a queue for dialogue and exits gracefully
 
+19/4/15 3pm - 10pm
+Improved driving and turning
 
+20/4/15 2:30am - 3am
+Fixed driving and turning
+Robot can now drive a specific distance
+
+21/4/15 3pm - 9:20pm
+Testing
+Cleaned up code
+Added comments
+
+22/4/15 3:30pm - 3:50pm
+Tested again and improved driving in front of a room
