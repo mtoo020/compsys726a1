@@ -83,7 +83,7 @@ void Pioneer::drive(bool checkForRooms) {
 			// ensure the robot remains parallel with the right wall and about RIGHT_GAP metres away.
 			double distance = laser->GetRange(LASER_RIGHT);
 			double difference = getLaserPoint(LASER_ENE).px - getLaserPoint(LASER_RIGHT).px;
-			if (difference > 0.001 && distance > RIGHT_GAP && distance < ROOM_THRESHOLD) { // don't turn into rooms through
+			if (difference > 0.001 && distance > RIGHT_GAP && distance < ROOM_DEPTH) { // don't turn into rooms through
 				yaw = -0.12;
 			} else if (difference < -0.001 && distance < RIGHT_GAP) {
 				yaw = 0.12;

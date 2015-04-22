@@ -48,6 +48,7 @@ private:
 	double FAST = 0.3;
 
 	double GAP_IN_WALL = 2; // distances equal or greater to this will be ignored when checking for rooms.
+	double ROOM_DEPTH = 0.6; // distance used to prevent turning into rooms
 	double ROOM_THRESHOLD = 0.75; // distance used for detecting rooms
 	double OBJECT_THRESHOLD = 0.1; // distance used for detecting an object's edge
 	double HAND_THRESHOLD = 0.25; // distance used for detecting a hand
